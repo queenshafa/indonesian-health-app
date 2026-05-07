@@ -1,54 +1,24 @@
-import { createClient } from '@/lib/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
-// GET: Fetch doctors with optional filters
-export async function GET(request: NextRequest) {
-  const supabase = createClient()
-  
+export async function GET() {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const clinic_id = searchParams.get('clinic_id')
-    const specialization = searchParams.get('specialization')
-    const city = searchParams.get('city')
+    const supabase = await createClient();
 
-    let query = supabase
-      .from('doctors')
-      .select(`
-        *,
-        clinic:clinics(*),
-        schedules:doctor_schedules(*),
-        reviews:doctor_reviews(*)
-      `)
+    const { data, error } = await supabase.from("doctors").select("*");
 
-    if (clinic_id) {
-      query = query.eq('clinic_id', clinic_id)
+    if (error) {
+      console.error(error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (specialization) {
-      query = query.ilike('specialization', `%${specialization}%`)
-    }
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error(err);
 
-    if (city) {
-      query = query.eq('clinic_id', (
-        await supabase
-          .from('clinics')
-          .select('id')
-          .eq('city', city)
-      ).data?.map(c => c.id) || [])
-    }
-
-    const { data: doctors, error } = await query
-      .eq('availability_status', 'available')
-      .order('average_rating', { ascending: false })
-
-    if (error) throw error
-
-    return NextResponse.json(doctors)
-  } catch (error) {
-    console.error('Doctors GET error:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch doctors' },
-      { status: 500 }
-    )
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
