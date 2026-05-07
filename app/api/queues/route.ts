@@ -3,15 +3,18 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // GET: Fetch user's queues
 export async function GET(request: NextRequest) {
-  const supabase = createClient()
-  
   try {
+    const supabase = await createClient()
+
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
     const { data: queues, error } = await supabase
@@ -29,6 +32,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(queues)
   } catch (error) {
     console.error('Queue GET error:', error)
+
     return NextResponse.json(
       { error: 'Failed to fetch queues' },
       { status: 500 }
@@ -38,18 +42,22 @@ export async function GET(request: NextRequest) {
 
 // POST: Create new queue/appointment
 export async function POST(request: NextRequest) {
-  const supabase = createClient()
-  
   try {
+    const supabase = await createClient()
+
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
     const body = await request.json()
+
     const {
       doctor_id,
       clinic_id,
@@ -59,10 +67,12 @@ export async function POST(request: NextRequest) {
       consultation_type = 'general',
     } = body
 
-    // Get current queue count for this doctor on this date
     const { count: existingQueues } = await supabase
       .from('queues')
-      .select('*', { count: 'exact', head: true })
+      .select('*', {
+        count: 'exact',
+        head: true,
+      })
       .eq('doctor_id', doctor_id)
       .eq('appointment_date', appointment_date)
       .eq('status', 'waiting')
@@ -88,9 +98,12 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error
 
-    return NextResponse.json(newQueue, { status: 201 })
+    return NextResponse.json(newQueue, {
+      status: 201,
+    })
   } catch (error) {
     console.error('Queue POST error:', error)
+
     return NextResponse.json(
       { error: 'Failed to create queue' },
       { status: 500 }
