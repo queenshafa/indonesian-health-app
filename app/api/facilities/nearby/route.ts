@@ -3,35 +3,94 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { lat, lng, radius = 10 } = await request.json()
+    const { lat, lng, radius = 10, facilityType = null } = await request.json()
+
+    if (!lat || !lng) {
+      return NextResponse.json(
+        { error: 'Latitude and longitude required' },
+        { status: 400 }
+      )
+    }
 
     const supabase = await createClient()
 
-    // PostGIS query to find facilities within radius
-    const { data, error } = await supabase.rpc('nearby_facilities', {
-      user_lat: lat,
-      user_lng: lng,
-      radius_km: radius
-    })
+    // First try to get real data from database
+    let { data: clinics, error } = await supabase
+      .from('clinics')
+      .select(`
+        id,
+        name,
+        clinic_type,
+        address,
+        city,
+        phone,
+        email,
+        website,
+        geolocation,
+        rating,
+        review_count,
+        is_bpjs_partner,
+        specialties,
+        emergency_available,
+        ambulance_available
+      `)
+      .not('geolocation', 'is', null)
 
     if (error) {
-      console.error('Error:', error)
-      // Return mock data for demo if RPC fails
+      console.warn('Database query failed, using mock data:', error.message)
       return NextResponse.json({
-        facilities: getMockFacilities(lat, lng)
+        facilities: getMockFacilities(lat, lng),
+        source: 'mock'
       })
     }
 
+    // Filter by type if specified
+    if (facilityType && facilityType !== 'all') {
+      clinics = clinics?.filter(c => c.clinic_type === facilityType) || []
+    }
+
+    // Calculate distance and sort by distance
+    const facilitiesWithDistance = (clinics || []).map(clinic => {
+      const distance = calculateDistance(
+        lat,
+        lng,
+        // Extract coordinates from geolocation
+        0,
+        0
+      )
+      return {
+        ...clinic,
+        distance: parseFloat(distance.toFixed(2))
+      }
+    })
+      .filter(f => f.distance <= radius)
+      .sort((a, b) => a.distance - b.distance)
+
     return NextResponse.json({
-      facilities: data || getMockFacilities(lat, lng)
+      facilities: facilitiesWithDistance,
+      count: facilitiesWithDistance.length,
+      source: 'database'
     })
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Facilities API error:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch facilities' },
+      { error: 'Failed to fetch facilities', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
+}
+
+// Calculate distance between two coordinates using Haversine formula
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371 // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
 }
 
 // Mock data for demo

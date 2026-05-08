@@ -144,20 +144,18 @@ export default function LandingPage() {
             </Card>
 
             {/* Feature 4 */}
-            <Link href="/emergency">
-              <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer hover:border-blue-400">
-                <div className="text-3xl mb-3">📍</div>
-                <h3 className="text-xl font-bold mb-3">Cari Fasilitas Terdekat</h3>
-                <p className="text-gray-600 mb-4">
-                  1 tombol: temukan klinik, IGD, apotek, dan ambulans terdekat
-                </p>
-                <ul className="text-sm text-gray-600 space-y-2">
-                  <li>✓ Maps interaktif</li>
-                  <li>✓ Jarak & waktu tempuh</li>
-                  <li>✓ Kontak & jam operasional</li>
-                </ul>
-              </Card>
-            </Link>
+            <Card className="p-6 hover:shadow-lg transition-shadow">
+              <div className="text-3xl mb-3">📍</div>
+              <h3 className="text-xl font-bold mb-3">Cari Fasilitas Terdekat</h3>
+              <p className="text-gray-600 mb-4">
+                1 tombol: temukan klinik, IGD, apotek, dan ambulans terdekat
+              </p>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li>✓ Maps interaktif</li>
+                <li>✓ Jarak & waktu tempuh</li>
+                <li>✓ Kontak & jam operasional</li>
+              </ul>
+            </Card>
 
             {/* Feature 5 */}
             <Card className="p-6 hover:shadow-lg transition-shadow">

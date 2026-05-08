@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface HealthEducation {
@@ -93,8 +94,9 @@ export default function HealthEducationFeed() {
       ) : (
         <div className="space-y-3">
           {educations.map((edu) => (
-            <Card key={edu.id} className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardContent className="p-4">
+            <Link key={edu.id} href={`/dashboard/health-education/${edu.id}`}>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-4">
                 <div className="space-y-3">
                   {/* Header */}
                   <div className="flex items-start justify-between gap-3">
@@ -124,8 +126,9 @@ export default function HealthEducationFeed() {
                     </button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}
