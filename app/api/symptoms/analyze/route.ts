@@ -13,43 +13,60 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
+    // cek user login
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
+    // ambil body
     const body: SymptomAnalysisRequest = await request.json();
 
     if (!body.symptoms || body.symptoms.length === 0) {
-      return NextResponse.json({ error: "Symptoms required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Symptoms required" },
+        { status: 400 }
+      );
     }
 
+    // cek api key
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json(
         { error: "Gemini API key missing" },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
     const symptomList = body.symptoms.join(", ");
 
     const prompt = `
-You are a helpful health information assistant. Analyze these symptoms and provide guidance (NOT a diagnosis).
+You are a professional health information assistant.
+
+Analyze these symptoms and provide general health guidance.
+DO NOT provide a medical diagnosis.
 
 Symptoms: ${symptomList}
 Duration: ${body.duration || "not specified"}
 Severity: ${body.severity || "not specified"}
 Age: ${body.age || "not specified"}
 
-Return ONLY valid JSON:
+Return ONLY valid JSON.
+
 {
   "disclaimer": "...",
   "possible_conditions": [
-    {"name": "...", "likelihood": "high|medium|low", "description": "..."}
+    {
+      "name": "...",
+      "likelihood": "high|medium|low",
+      "description": "..."
+    }
   ],
   "urgency_level": "low|medium|high|emergency",
   "urgency_color": "green|yellow|orange|red",
@@ -60,82 +77,195 @@ Return ONLY valid JSON:
 }
 `;
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    // init gemini
+    const genAI = new GoogleGenerativeAI(
+      process.env.GEMINI_API_KEY
+    );
 
     const model = genAI.getGenerativeModel({
       model: "gemini-2.0-flash",
     });
 
+    // retry function
+    async function generateWithRetry(
+      retries = 3
+    ): Promise<any> {
+
+      for (let i = 0; i < retries; i++) {
+
+        try {
+
+          console.log("Generating AI response...");
+
+          return await model.generateContent(prompt);
+
+        } catch (error: any) {
+
+          console.error("Gemini Error:", error);
+
+          // handle rate limit
+          if (
+            error?.status === 429 &&
+            i < retries - 1
+          ) {
+
+            const delay = (i + 1) * 60000;
+
+            console.log(
+              `Rate limited. Retrying in ${delay}ms`
+            );
+
+            await new Promise((resolve) =>
+              setTimeout(resolve, delay)
+            );
+
+          } else {
+            throw error;
+          }
+        }
+      }
+    }
+
     let analysisResult;
 
     try {
-      const result = await model.generateContent(prompt);
+
+      const result = await generateWithRetry();
 
       const response = await result.response;
+
       const content = response.text();
 
+      console.log("AI RESPONSE:", content);
+
+      // parse json
       try {
+
         const jsonMatch = content.match(/\{[\s\S]*\}/);
 
         analysisResult = jsonMatch
           ? JSON.parse(jsonMatch[0])
           : JSON.parse(content);
+
       } catch {
+
+        // fallback
         analysisResult = {
           disclaimer:
-            "⚠️ DISCLAIMER: This is NOT a medical diagnosis. Please consult a doctor.",
+            "⚠️ This is NOT a medical diagnosis. Please consult a healthcare professional.",
+
           analysis: content,
+
           urgency_level: "medium",
+
           urgency_color: "yellow",
+
           immediate_actions: [
-            "Rest and hydrate",
-            "Monitor symptoms",
-            "Consult doctor if symptoms worsen",
+            "Rest and stay hydrated",
+            "Monitor your symptoms",
+            "Seek medical help if symptoms worsen",
+          ],
+
+          when_to_see_doctor:
+            "Consult a doctor if symptoms continue.",
+
+          red_flags: [
+            "Difficulty breathing",
+            "Severe chest pain",
+          ],
+
+          follow_up_questions: [
+            "How long have symptoms lasted?",
+            "Have symptoms worsened recently?",
           ],
         };
       }
+
     } catch (aiError: any) {
-      console.error("Gemini AI Error:", aiError);
+
+      console.error("Final AI Error:", aiError);
 
       if (aiError?.status === 429) {
+
         return NextResponse.json(
           {
-            error: "AI quota exceeded. Please try again later.",
+            error:
+              "AI quota exceeded. Please wait and try again later.",
           },
-          { status: 429 },
+          { status: 429 }
         );
       }
 
       return NextResponse.json(
         {
-          error: "AI service temporarily unavailable.",
+          error:
+            "AI service temporarily unavailable.",
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
-    await supabase.from("health_records").insert({
-      patient_id: user.id,
-      record_type: "symptom_log",
-      title: `Symptom Analysis: ${symptomList}`,
-      description: `Duration: ${
-        body.duration || "not specified"
-      }, Severity: ${body.severity || "not specified"}`,
-      symptoms: body.symptoms,
-      ai_suggestion: JSON.stringify(analysisResult),
-      urgency_level: analysisResult.urgency_level,
-      record_date: new Date().toISOString().split("T")[0],
-    });
+    // simpan ke database
+    const { error: insertError } = await supabase
+      .from("health_records")
+      .insert({
+        patient_id: user.id,
 
+        record_type: "symptom_log",
+
+        title: `Symptom Analysis: ${symptomList}`,
+
+        description: `
+Duration: ${body.duration || "not specified"},
+Severity: ${body.severity || "not specified"}
+        `,
+
+        symptoms: body.symptoms,
+
+        ai_suggestion: JSON.stringify(
+          analysisResult
+        ),
+
+        urgency_level:
+          analysisResult.urgency_level,
+
+        record_date: new Date()
+          .toISOString()
+          .split("T")[0],
+      });
+
+    if (insertError) {
+
+      console.error(
+        "Supabase Insert Error:",
+        insertError
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Failed to save health record",
+        },
+        { status: 500 }
+      );
+    }
+
+    // sukses
     return NextResponse.json(analysisResult);
+
   } catch (error) {
-    console.error("Symptom analysis error:", error);
+
+    console.error(
+      "Symptom analysis error:",
+      error
+    );
 
     return NextResponse.json(
       {
-        error: "Failed to analyze symptoms",
+        error:
+          "Failed to analyze symptoms",
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

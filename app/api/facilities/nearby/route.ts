@@ -2,120 +2,299 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
+
   try {
-    const { lat, lng, radius = 10 } = await request.json()
+
+    const {
+      lat,
+      lng,
+      radius = 10,
+      facility_type = "clinic"
+    } = await request.json()
+
+    // =========================
+    // VALIDATE INPUT
+    // =========================
+
+    if (
+      lat === undefined ||
+      lng === undefined
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Latitude and longitude required',
+        },
+        { status: 400 }
+      )
+    }
+
+    const latitude = Number(lat)
+    const longitude = Number(lng)
+
+    if (
+      isNaN(latitude) ||
+      isNaN(longitude)
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Invalid coordinates',
+        },
+        { status: 400 }
+      )
+    }
+
+    // =========================
+    // CONNECT SUPABASE
+    // =========================
 
     const supabase = await createClient()
 
-    // PostGIS query to find facilities within radius
-    const { data, error } = await supabase.rpc('nearby_facilities', {
-      user_lat: lat,
-      user_lng: lng,
-      radius_km: radius
-    })
+    let query =
+      supabase
+        .from('clinics')
+        .select('*')
 
-    if (error) {
-      console.error('Error:', error)
-      // Return mock data for demo if RPC fails
-      return NextResponse.json({
-        facilities: getMockFacilities(lat, lng)
-      })
+    // filter type kalau bukan all
+    if (
+      facility_type &&
+      facility_type !== 'all'
+    ) {
+      query =
+        query.eq(
+          'clinic_type',
+          facility_type
+        )
     }
 
+    const {
+      data: clinics,
+      error
+    } = await query
+
+    if (error) {
+
+      console.error(
+        'Supabase Error:',
+        error
+      )
+
+      return NextResponse.json(
+        {
+          error:
+            'Failed to fetch clinics',
+        },
+        { status: 500 }
+      )
+    }
+
+    // =========================
+    // PROCESS DISTANCE
+    // =========================
+
+    const facilities = (clinics || [])
+
+      .map((clinic) => {
+
+        const distance =
+          calculateDistance(
+            latitude,
+            longitude,
+            Number(clinic.latitude),
+            Number(clinic.longitude)
+          )
+
+        return {
+
+          id: clinic.id,
+
+          name: clinic.name,
+
+          clinic_type:
+            clinic.clinic_type,
+
+          address:
+            clinic.address,
+
+          city:
+            clinic.city,
+
+          phone:
+            clinic.phone,
+
+          latitude:
+            clinic.latitude,
+
+          longitude:
+            clinic.longitude,
+
+          rating:
+            clinic.rating,
+
+          distance_km:
+            Number(
+              distance.toFixed(1)
+            ),
+
+          specialties:
+            clinic.specialties || [],
+
+          services:
+            clinic.services || [],
+
+          operating_hours:
+            clinic.operating_hours,
+
+          average_wait_time_minutes:
+            clinic.average_wait_time_minutes || 15,
+        }
+      })
+
+      .filter(
+        (clinic) =>
+          clinic.distance_km <= radius
+      )
+
+      .sort(
+        (a, b) =>
+          a.distance_km -
+          b.distance_km
+      )
+
+    // =========================
+    // SEND TO N8N WEBHOOK
+    // =========================
+
+    let webhookData = null
+
+    try {
+
+      const webhookResponse =
+        await fetch(
+          process.env
+            .N8N_WEBHOOK_FACILITY_FINDER!,
+          {
+
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json',
+            },
+
+            body: JSON.stringify({
+
+              latitude,
+
+              longitude,
+
+              radius_km:
+                radius,
+
+              facility_type,
+
+              total_facilities:
+                facilities.length,
+
+              facilities,
+            }),
+          }
+        )
+
+      webhookData =
+        await webhookResponse.json()
+
+    } catch (webhookError) {
+
+      console.error(
+        'Webhook Error:',
+        webhookError
+      )
+
+      webhookData = {
+        success: false,
+        message:
+          'Webhook failed',
+      }
+    }
+
+    // =========================
+    // RETURN RESPONSE
+    // =========================
+
     return NextResponse.json({
-      facilities: data || getMockFacilities(lat, lng)
+
+      success: true,
+
+      total_facilities:
+        facilities.length,
+
+      facilities,
+
+      webhook_response:
+        webhookData,
     })
+
   } catch (error) {
-    console.error('Error:', error)
+
+    console.error(
+      'Server Error:',
+      error
+    )
+
     return NextResponse.json(
-      { error: 'Failed to fetch facilities' },
+      {
+        error:
+          'Failed to fetch facilities',
+      },
       { status: 500 }
     )
   }
 }
 
-// Mock data for demo
-function getMockFacilities(lat: number, lng: number) {
-  const facilities = [
-    {
-      id: '1',
-      name: 'Puskesmas Jakarta Pusat',
-      type: 'clinic',
-      address: 'Jl. Merdeka No. 123, Jakarta Pusat',
-      phone: '021-3456789',
-      distance: 0.8,
-      isOpen: true,
-      operatingHours: '08:00 - 16:00',
-      bpjsPartner: true,
-      rating: 4.5,
-      specialties: ['Dokter Umum', 'Vaksinasi']
-    },
-    {
-      id: '2',
-      name: 'Rumah Sakit Mitra Sejati',
-      type: 'hospital',
-      address: 'Jl. Sudirman No. 456, Jakarta Pusat',
-      phone: '021-9876543',
-      distance: 2.3,
-      isOpen: true,
-      operatingHours: '24 Jam',
-      bpjsPartner: true,
-      rating: 4.8,
-      specialties: ['Umum', 'Spesialis Anak', 'Spesialis Kandungan', 'Spesialis Jantung']
-    },
-    {
-      id: '3',
-      name: 'IGD Rumah Sakit Central',
-      type: 'emergency_room',
-      address: 'Jl. Gatot Subroto, Jakarta Pusat',
-      phone: '021-5555555',
-      distance: 3.1,
-      isOpen: true,
-      operatingHours: '24 Jam',
-      bpjsPartner: true,
-      rating: 4.6,
-      specialties: ['Emergency', 'Trauma']
-    },
-    {
-      id: '4',
-      name: 'Apotek Sehat Farma',
-      type: 'pharmacy',
-      address: 'Jl. Thamrin No. 789, Jakarta Pusat',
-      phone: '021-1234567',
-      distance: 1.2,
-      isOpen: true,
-      operatingHours: '08:00 - 22:00',
-      bpjsPartner: false,
-      rating: 4.3,
-      specialties: []
-    },
-    {
-      id: '5',
-      name: 'Layanan Ambulans 24 Jam',
-      type: 'ambulance',
-      address: 'Jl. Kuningan, Jakarta Pusat',
-      phone: '021-9999999',
-      distance: 1.5,
-      isOpen: true,
-      operatingHours: '24 Jam',
-      bpjsPartner: true,
-      rating: 4.7,
-      specialties: []
-    },
-    {
-      id: '6',
-      name: 'Klinik Spesialis Kulit Dermata',
-      type: 'clinic',
-      address: 'Jl. Diponegoro No. 321, Jakarta Pusat',
-      phone: '021-8765432',
-      distance: 2.8,
-      isOpen: true,
-      operatingHours: '09:00 - 17:00',
-      bpjsPartner: true,
-      rating: 4.9,
-      specialties: ['Spesialis Kulit']
-    }
-  ]
+// =========================
+// DISTANCE CALCULATOR
+// =========================
 
-  return facilities
+function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+) {
+
+  const R = 6371
+
+  const dLat =
+    toRad(lat2 - lat1)
+
+  const dLon =
+    toRad(lon2 - lon1)
+
+  const a =
+    Math.sin(dLat / 2) *
+      Math.sin(dLat / 2) +
+
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+
+    Math.sin(dLon / 2) *
+      Math.sin(dLon / 2)
+
+  const c =
+    2 *
+    Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a)
+    )
+
+  return R * c
+}
+
+function toRad(value: number) {
+
+  return (
+    value * Math.PI
+  ) / 180
 }
