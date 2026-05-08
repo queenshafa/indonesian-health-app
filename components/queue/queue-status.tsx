@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
 
 interface Queue {
   id: string
@@ -25,9 +26,11 @@ interface Queue {
 
 interface QueueStatusProps {
   queue: Queue
+  onStatusChange?: () => void
 }
 
-export default function QueueStatus({ queue }: QueueStatusProps) {
+export default function QueueStatus({ queue: initialQueue, onStatusChange }: QueueStatusProps) {
+  const [queue, setQueue] = useState(initialQueue)
   const [remainingWaitTime, setRemainingWaitTime] = useState(queue.estimated_wait_time_minutes)
   const [queueAhead, setQueueAhead] = useState(queue.queue_number - 1)
 
@@ -39,6 +42,49 @@ export default function QueueStatus({ queue }: QueueStatusProps) {
 
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    const supabase = createClient()
+    
+    // Subscribe to real-time updates for this specific queue
+    const channel = supabase
+      .channel(`queue:${queue.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'queues',
+          filter: `id=eq.${queue.id}`,
+        },
+        (payload) => {
+          console.log('[v0] Queue update received:', payload)
+          
+          const updatedQueue = payload.new || queue
+          setQueue(updatedQueue)
+          
+          // Notify user when status changes to 'called'
+          if (payload.new?.status === 'called' && queue.status !== 'called') {
+            toast.success(`Giliran Anda! Silahkan menuju ruangan dokter ${queue.doctor?.full_name}`, {
+              description: `Klinik ${queue.clinic?.name}`,
+              duration: 10000,
+            })
+          }
+          
+          // Update queue ahead count
+          if (updatedQueue.queue_number) {
+            setQueueAhead(Math.max(0, updatedQueue.queue_number - 1))
+          }
+          
+          onStatusChange?.()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [queue.id, queue.status, queue.doctor?.full_name, queue.clinic?.name, onStatusChange])
 
   const getStatusColor = (status: string) => {
     switch (status) {

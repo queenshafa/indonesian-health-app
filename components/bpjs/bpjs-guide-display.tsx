@@ -173,9 +173,16 @@ export function BPJSGuideDisplay({
         <Button variant="outline" onClick={onBack} className="flex-1">
           ← Kembali
         </Button>
-        <Button className="flex-1">
-          💬 Chat dengan BPJS
-        </Button>
+        <a 
+          href="https://wa.me/622123012345?text=Halo%20BPJS%20Kesehatan%2C%20saya%20ingin%20bertanya%20mengenai%20layanan%20BPJS" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex-1"
+        >
+          <Button className="w-full">
+            💬 Chat dengan BPJS
+          </Button>
+        </a>
       </div>
     </div>
   )

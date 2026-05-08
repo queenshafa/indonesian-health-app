@@ -67,17 +67,18 @@ export async function POST(request: NextRequest) {
       consultation_type = 'general',
     } = body
 
-    const { count: existingQueues } = await supabase
+    // Get the maximum queue number for this doctor on this date to ensure uniqueness
+    const { data: maxQueueData, error: maxError } = await supabase
       .from('queues')
-      .select('*', {
-        count: 'exact',
-        head: true,
-      })
+      .select('queue_number')
       .eq('doctor_id', doctor_id)
       .eq('appointment_date', appointment_date)
-      .eq('status', 'waiting')
+      .order('queue_number', { ascending: false })
+      .limit(1)
 
-    const queue_number = (existingQueues || 0) + 1
+    if (maxError) throw maxError
+
+    const queue_number = (maxQueueData?.[0]?.queue_number || 0) + 1
 
     const { data: newQueue, error } = await supabase
       .from('queues')

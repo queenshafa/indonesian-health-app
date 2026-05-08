@@ -71,7 +71,7 @@ export default function LandingPage() {
           </h1>
           <p className="text-lg md:text-xl text-gray-600 mb-8 max-w-2xl mx-auto text-balance">
             Platform kesehatan digital untuk seluruh Indonesia. Booking dokter,
-            cek gejala, bantuan BPJS, dan edukasi kesehatan - semua dalam satu
+            cek gejala, bantuan BPJS, dan cari fasilitas kesehatan - semua dalam satu
             aplikasi
           </p>
           <div className="flex gap-4 justify-center flex-col md:flex-row">
@@ -98,7 +98,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12">Fitur Utama</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Feature 1 */}
             <Card className="p-6 hover:shadow-lg transition-shadow">
               <div className="text-3xl mb-3">📋</div>
@@ -158,34 +158,6 @@ export default function LandingPage() {
                 </ul>
               </Card>
             </Link>
-
-            {/* Feature 5 */}
-            <Card className="p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-3">📚</div>
-              <h3 className="text-xl font-bold mb-3">Edukasi Kesehatan Harian</h3>
-              <p className="text-gray-600 mb-4">
-                Tips tidur, makan sehat, olahraga, dan kesehatan mental
-              </p>
-              <ul className="text-sm text-gray-600 space-y-2">
-                <li>✓ Konten singkat & mudah</li>
-                <li>✓ Notifikasi setiap pagi</li>
-                <li>✓ Untuk semua usia</li>
-              </ul>
-            </Card>
-
-            {/* Feature 6 */}
-            <Card className="p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-3">👨‍👩‍👧‍👦</div>
-              <h3 className="text-xl font-bold mb-3">Kelola Keluarga</h3>
-              <p className="text-gray-600 mb-4">
-                Satu akun untuk kelola data kesehatan seluruh keluarga
-              </p>
-              <ul className="text-sm text-gray-600 space-y-2">
-                <li>✓ BPJS keluarga</li>
-                <li>✓ Riwayat kesehatan</li>
-                <li>✓ Jadwal obat orang tua</li>
-              </ul>
-            </Card>
           </div>
         </div>
       </section>
