@@ -4,14 +4,12 @@ import { User } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 
 interface DashboardNavProps {
@@ -21,30 +19,6 @@ interface DashboardNavProps {
 export default function DashboardNav({ user }: DashboardNavProps) {
   const router = useRouter()
   const supabase = createClient()
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const checkAdmin = async () => {
-      try {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-
-        if (!error && profile?.role === 'admin') {
-          setIsAdmin(true)
-        }
-      } catch (err) {
-        console.error('Error checking admin role:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkAdmin()
-  }, [user.id, supabase])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -68,14 +42,6 @@ export default function DashboardNav({ user }: DashboardNavProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {isAdmin && (
-                  <>
-                    <DropdownMenuItem asChild>
-                      <Link href="/dashboard/admin">Admin Panel</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
                 <DropdownMenuItem asChild>
                   <Link href="/profile">Profil Saya</Link>
                 </DropdownMenuItem>
