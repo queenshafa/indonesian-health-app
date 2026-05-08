@@ -88,8 +88,6 @@ export default function EmergencyPage() {
           <h1 className="text-3xl font-bold">🚑 Emergency Terdekat</h1>
         </div>
 
-        <p className="text-gray-600 mb-6">
-
         {loading && (
           <div className="bg-white rounded-lg p-6 shadow">
             <p>Mencari fasilitas emergency...</p>
