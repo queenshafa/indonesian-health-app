@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SymptomInput } from '@/components/symptom/symptom-input'
@@ -22,6 +23,7 @@ interface AnalysisResult {
 }
 
 export default function SymptomCheckerPage() {
+  const router = useRouter()
   const [step, setStep] = useState<'intro' | 'input' | 'result'>('intro')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -58,11 +60,16 @@ export default function SymptomCheckerPage() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Cek Gejala Anda</h1>
-        <p className="text-gray-600 mt-2">
-          Input gejala Anda dan dapatkan saran tindakan awal yang aman
-        </p>
+      <div className="mb-8 flex items-center gap-4">
+        <Button variant="outline" size="icon" onClick={() => router.back()}>
+          ← Kembali
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold">Cek Gejala Anda</h1>
+          <p className="text-gray-600 mt-2">
+            Input gejala Anda dan dapatkan saran tindakan awal yang aman
+          </p>
+        </div>
       </div>
 
       {step === 'intro' && (

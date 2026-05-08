@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 import QueueStatus from '@/components/queue/queue-status'
 import DoctorSearch from '@/components/queue/doctor-search'
 import QuickActions from '@/components/dashboard/quick-actions'
-import HealthEducationFeed from '@/components/health-education/feed'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -89,18 +88,13 @@ export default function DashboardPage() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="booking" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="booking">Booking Dokter</TabsTrigger>
-          <TabsTrigger value="education">Edukasi Kesehatan</TabsTrigger>
           <TabsTrigger value="history">Riwayat Antrian</TabsTrigger>
         </TabsList>
 
         <TabsContent value="booking" className="space-y-4">
           <DoctorSearch onQueueCreated={fetchQueues} />
-        </TabsContent>
-
-        <TabsContent value="education" className="space-y-4">
-          <HealthEducationFeed />
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4">

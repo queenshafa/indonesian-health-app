@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 interface Facility {
   id: string;
@@ -14,6 +16,7 @@ interface Facility {
 }
 
 export default function EmergencyPage() {
+  const router = useRouter();
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -78,11 +81,14 @@ export default function EmergencyPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-2">🚑 Emergency Terdekat</h1>
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" size="icon" onClick={() => router.back()}>
+            ← Kembali
+          </Button>
+          <h1 className="text-3xl font-bold">🚑 Emergency Terdekat</h1>
+        </div>
 
         <p className="text-gray-600 mb-6">
-          Menampilkan IGD dan fasilitas emergency terdekat dari lokasi Anda
-        </p>
 
         {loading && (
           <div className="bg-white rounded-lg p-6 shadow">

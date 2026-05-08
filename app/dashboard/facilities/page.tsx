@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +30,7 @@ const FACILITY_TYPES = {
 }
 
 export default function FacilitiesPage() {
+  const router = useRouter()
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -109,9 +111,14 @@ const fetchFacilities = async () => {
   return (
     <div className="space-y-6 p-6">
 
-      <h1 className="text-2xl font-bold">
-        Cari Fasilitas Kesehatan
-      </h1>
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" onClick={() => router.back()}>
+          ← Kembali
+        </Button>
+        <h1 className="text-2xl font-bold">
+          Cari Fasilitas Kesehatan
+        </h1>
+      </div>
 
       {/* FILTER */}
       <div className="flex gap-2 flex-wrap">
