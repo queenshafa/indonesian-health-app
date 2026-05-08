@@ -59,18 +59,24 @@ export default function SymptomCheckerPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="mb-8 flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => router.back()}>
-          ← Kembali
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">Cek Gejala Anda</h1>
-          <p className="text-gray-600 mt-2">
-            Input gejala Anda dan dapatkan saran tindakan awal yang aman
-          </p>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-8">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => router.back()}
+            className="mb-4"
+          >
+            ← Kembali
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Cek Gejala Anda</h1>
+            <p className="text-gray-600 mt-2">
+              Input gejala Anda dan dapatkan saran tindakan awal yang aman
+            </p>
+          </div>
         </div>
-      </div>
 
       {step === 'intro' && (
         <Card className="p-8">
@@ -108,6 +114,7 @@ export default function SymptomCheckerPage() {
           onBack={() => setStep('input')}
         />
       )}
+      </div>
     </div>
   )
 }
