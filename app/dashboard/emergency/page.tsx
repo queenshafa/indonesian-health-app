@@ -81,11 +81,18 @@ export default function EmergencyPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" size="icon" onClick={() => router.back()}>
+        <div className="mb-8">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => router.back()}
+            className="mb-4"
+          >
             ← Kembali
           </Button>
-          <h1 className="text-3xl font-bold">🚑 Emergency Terdekat</h1>
+          <div>
+            <h1 className="text-3xl font-bold">🚑 Emergency Terdekat</h1>
+          </div>
         </div>
 
         {loading && (

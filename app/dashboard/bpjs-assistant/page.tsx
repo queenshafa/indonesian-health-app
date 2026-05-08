@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { BPJSFlowSelector } from '@/components/bpjs/bpjs-flow-selector'
@@ -398,25 +399,38 @@ const BPJS_GUIDES: Record<string, BPJSGuide> = {
 }
 
 export default function BPJSAssistantPage() {
+  const router = useRouter()
   const [selectedGuide, setSelectedGuide] = useState<string | null>(null)
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Asisten BPJS Interaktif</h1>
-        <p className="text-gray-600 mt-2">
-          Panduan step-by-step untuk berbagai keperluan BPJS Anda
-        </p>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-8">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => router.back()}
+            className="mb-4"
+          >
+            ← Kembali
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Asisten BPJS Interaktif</h1>
+            <p className="text-gray-600 mt-2">
+              Panduan step-by-step untuk berbagai keperluan BPJS Anda
+            </p>
+          </div>
+        </div>
+
+        {!selectedGuide && <BPJSFlowSelector onSelect={setSelectedGuide} />}
+
+        {selectedGuide && selectedGuide in BPJS_GUIDES && (
+          <BPJSGuideDisplay
+            {...BPJS_GUIDES[selectedGuide as keyof typeof BPJS_GUIDES]}
+            onBack={() => setSelectedGuide(null)}
+          />
+        )}
       </div>
-
-      {!selectedGuide && <BPJSFlowSelector onSelect={setSelectedGuide} />}
-
-      {selectedGuide && selectedGuide in BPJS_GUIDES && (
-        <BPJSGuideDisplay
-          {...BPJS_GUIDES[selectedGuide as keyof typeof BPJS_GUIDES]}
-          onBack={() => setSelectedGuide(null)}
-        />
-      )}
     </div>
   )
 }
