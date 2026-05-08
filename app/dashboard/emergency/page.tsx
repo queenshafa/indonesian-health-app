@@ -1,92 +1,84 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 
 interface Facility {
-  id: string
-  name: string
-  address: string
-  phone: string
-  rating: number
-  distance_km: number
-  average_wait_time_minutes: number
-  services: string[]
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  rating: number;
+  distance_km: number;
+  average_wait_time_minutes: number;
+  services: string[];
 }
 
 export default function EmergencyPage() {
-  const [facilities, setFacilities] = useState<Facility[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [location, setLocation] = useState<{
-    latitude: number
-    longitude: number
-  } | null>(null)
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   useEffect(() => {
-    getLocation()
-  }, [])
+    getLocation();
+  }, []);
 
   const getLocation = () => {
     if (!navigator.geolocation) {
-      setError('Geolocation tidak didukung browser')
-      setLoading(false)
-      return
+      setError("Geolocation tidak didukung browser");
+      setLoading(false);
+      return;
     }
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const latitude = position.coords.latitude
-        const longitude = position.coords.longitude
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
 
-        setLocation({ latitude, longitude })
+        setLocation({ latitude, longitude });
 
         try {
-          const response = await fetch(
-            'YOUR_N8N_WEBHOOK_URL/webhook/find-facility',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                user_id: 'guest-user',
-                latitude,
-                longitude,
-                facility_type: 'emergency',
-                radius_km: 5,
-                open_now: true,
-              }),
-            }
-          )
+          const response = await fetch("/api/facilities/nearby", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              lat: latitude,
+              lng: longitude,
+              radius: 5,
+            }),
+          });
 
           if (!response.ok) {
-            throw new Error('Failed fetch emergency facilities')
+            throw new Error("Failed fetch emergency facilities");
           }
 
-          const data = await response.json()
+          const data = await response.json();
 
-          setFacilities(data.results || [])
+          setFacilities(data.facilities || []);
         } catch (err) {
-          console.error(err)
-          setError('Gagal mengambil fasilitas emergency')
+          console.error(err);
+          setError("Gagal mengambil fasilitas emergency");
         } finally {
-          setLoading(false)
+          setLoading(false);
         }
       },
       (err) => {
-        console.error(err)
-        setError('Izin lokasi ditolak')
-        setLoading(false)
-      }
-    )
-  }
+        console.error(err);
+        setError("Izin lokasi ditolak");
+        setLoading(false);
+      },
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-2">
-          🚑 Emergency Terdekat
-        </h1>
+        <h1 className="text-3xl font-bold mb-2">🚑 Emergency Terdekat</h1>
 
         <p className="text-gray-600 mb-6">
           Menampilkan IGD dan fasilitas emergency terdekat dari lokasi Anda
@@ -122,13 +114,9 @@ export default function EmergencyPage() {
             >
               <div className="flex justify-between items-start gap-4">
                 <div>
-                  <h2 className="text-xl font-bold">
-                    {facility.name}
-                  </h2>
+                  <h2 className="text-xl font-bold">{facility.name}</h2>
 
-                  <p className="text-gray-600 mt-1">
-                    {facility.address}
-                  </p>
+                  <p className="text-gray-600 mt-1">{facility.address}</p>
 
                   <div className="flex flex-wrap gap-2 mt-3">
                     {facility.services?.map((service, idx) => (
@@ -146,15 +134,15 @@ export default function EmergencyPage() {
                     <p>⭐ {facility.rating}</p>
                     <p>📍 {facility.distance_km?.toFixed(1)} km</p>
                     <p>
-                      ⏱️ Estimasi tunggu:{' '}
-                      {facility.average_wait_time_minutes} menit
+                      ⏱️ Estimasi tunggu: {facility.average_wait_time_minutes}{" "}
+                      menit
                     </p>
                   </div>
                 </div>
 
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                    facility.address
+                    facility.address,
                   )}`}
                   target="_blank"
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
@@ -173,5 +161,5 @@ export default function EmergencyPage() {
         )}
       </div>
     </div>
-  )
+  );
 }
