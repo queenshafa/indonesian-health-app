@@ -29,6 +29,7 @@ export async function POST(
       success: true,
     });
 
+<<<<<<< HEAD
   } catch (error) {
 
     console.error(error);
@@ -43,3 +44,25 @@ export async function POST(
     );
   }
 }
+=======
+    // Return immediately with job ID
+    return NextResponse.json(
+      {
+        message: "Symptom analysis queued",
+        job_id,
+        status: "processing",
+      },
+      { status: 202 }
+    );
+  } catch (error) {
+    console.error("Symptom analysis error:", error);
+
+    return NextResponse.json(
+      {
+        error: "Failed to queue symptom analysis",
+      },
+      { status: 500 }
+    );
+  }
+}
+>>>>>>> 33f8b546a2a42b4f4118e1e565229abaf5025ad3
