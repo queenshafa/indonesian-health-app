@@ -29,22 +29,6 @@ export async function POST(
       success: true,
     });
 
-<<<<<<< HEAD
-  } catch (error) {
-
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        error: "Webhook failed",
-      },
-      {
-        status: 500,
-      }
-    );
-  }
-}
-=======
     // Return immediately with job ID
     return NextResponse.json(
       {
@@ -65,4 +49,3 @@ export async function POST(
     );
   }
 }
->>>>>>> 33f8b546a2a42b4f4118e1e565229abaf5025ad3
