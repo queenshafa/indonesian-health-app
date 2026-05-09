@@ -37,13 +37,55 @@ export async function POST(request: NextRequest) {
     }
 
     // Send job to N8N webhook
-    const { job_id } = await sendJobToN8N("/symptom-analysis", {
+    const { job_id, responseBody } = await sendJobToN8N("symptom-analysis", {
       patient_id: user.id,
       symptoms: body.symptoms,
       duration: body.duration,
       severity: body.severity,
       age: body.age,
     });
+
+    if (responseBody && typeof responseBody === 'object') {
+      if ('analysis_result' in responseBody && responseBody.analysis_result) {
+        const analysis = responseBody.analysis_result as any;
+        const possibleConditions = Array.isArray(analysis.possible_conditions)
+          ? analysis.possible_conditions.map((item: any) =>
+              typeof item === 'string'
+                ? { name: item, likelihood: 'low', description: '' }
+                : item
+            )
+          : [];
+
+        return NextResponse.json(
+          {
+            message: "Symptom analysis completed",
+            job_id,
+            status: "completed",
+            disclaimer: analysis.disclaimer ?? "Hasil analisis awal.",
+            possible_conditions: possibleConditions,
+            urgency_level: analysis.urgency_level ?? "medium",
+            urgency_color: analysis.urgency_color ?? "yellow",
+            immediate_actions: analysis.recommended_actions ?? analysis.immediate_actions ?? [],
+            when_to_see_doctor: analysis.when_to_see_doctor ?? analysis.additional_notes ?? "",
+            red_flags: analysis.red_flags ?? [],
+            follow_up_questions: analysis.follow_up_questions ?? [],
+          },
+          { status: 200 }
+        );
+      }
+
+      if (Array.isArray((responseBody as any).possible_conditions)) {
+        return NextResponse.json(
+          {
+            message: "Symptom analysis completed",
+            job_id,
+            status: "completed",
+            ...responseBody,
+          },
+          { status: 200 }
+        );
+      }
+    }
 
     // Return immediately with job ID
     return NextResponse.json(

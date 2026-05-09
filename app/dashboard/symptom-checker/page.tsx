@@ -27,11 +27,13 @@ export default function SymptomCheckerPage() {
   const [step, setStep] = useState<'intro' | 'input' | 'result'>('intro')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [result, setResult] = useState<AnalysisResult | null>(null)
 
   const handleAnalyze = async (symptoms: string[], severity: string, duration: string) => {
     setLoading(true)
     setError('')
+    setInfo('')
 
     try {
       const response = await fetch('/api/symptoms/analyze', {
@@ -49,8 +51,19 @@ export default function SymptomCheckerPage() {
       }
 
       const data = await response.json()
-      setResult(data)
-      setStep('result')
+
+      if (data?.status === 'processing') {
+        setInfo('Permintaan analisis berhasil dikirim. Tunggu beberapa saat hingga N8N selesai memproses.')
+        return
+      }
+
+      if (data?.analysis_result || Array.isArray(data?.possible_conditions)) {
+        setResult(data)
+        setStep('result')
+        return
+      }
+
+      throw new Error(data?.error || 'Response analisis tidak valid')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Terjadi kesalahan')
     } finally {
@@ -102,6 +115,11 @@ export default function SymptomCheckerPage() {
           {error && (
             <div className="bg-red-50 border border-red-300 rounded-lg p-4 mb-6">
               <p className="text-red-900">❌ {error}</p>
+            </div>
+          )}
+          {info && (
+            <div className="bg-blue-50 border border-blue-300 rounded-lg p-4 mb-6">
+              <p className="text-blue-900">ℹ️ {info}</p>
             </div>
           )}
           <SymptomInput onAnalyze={handleAnalyze} loading={loading} />

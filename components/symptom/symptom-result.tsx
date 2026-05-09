@@ -67,7 +67,11 @@ const getLikelihoodColor = (likelihood: string) => {
 }
 
 export function SymptomResult({ result, onBack }: SymptomResultProps) {
-  const urgency = URGENCY_DETAILS[result.urgency_level]
+  const urgency = URGENCY_DETAILS[result.urgency_level] ?? URGENCY_DETAILS.low
+  const immediateActions = result.immediate_actions ?? []
+  const possibleConditions = result.possible_conditions ?? []
+  const redFlags = result.red_flags ?? []
+  const followUpQuestions = result.follow_up_questions ?? []
 
   return (
     <div className="space-y-6">
@@ -91,9 +95,9 @@ export function SymptomResult({ result, onBack }: SymptomResultProps) {
       <div>
         <h3 className="text-lg font-semibold mb-3">✅ Tindakan Langsung yang Bisa Anda Lakukan</h3>
         <ul className="space-y-2">
-          {result.immediate_actions.map((action, idx) => (
+          {immediateActions.map((action, idx) => (
             <li key={idx} className="flex gap-3 items-start">
-              <span className="text-green-600 font-bold flex-shrink-0 mt-1">✓</span>
+              <span className="text-green-600 font-bold shrink-0 mt-1">✓</span>
               <span className="text-gray-700">{action}</span>
             </li>
           ))}
@@ -106,7 +110,7 @@ export function SymptomResult({ result, onBack }: SymptomResultProps) {
           📋 Kemungkinan Kondisi yang Umum
         </h3>
         <div className="space-y-3">
-          {result.possible_conditions.map((condition, idx) => (
+          {possibleConditions.map((condition, idx) => (
             <Card key={idx} className="p-4">
               <div className="flex items-start justify-between gap-4 mb-2">
                 <h4 className="font-semibold text-gray-900">{condition.name}</h4>
@@ -131,13 +135,13 @@ export function SymptomResult({ result, onBack }: SymptomResultProps) {
       </Card>
 
       {/* Red Flags */}
-      {result.red_flags && result.red_flags.length > 0 && (
+      {redFlags.length > 0 && (
         <Card className="bg-red-50 border-red-200 p-4">
           <h3 className="font-semibold text-red-900 mb-3">⚠️ Tanda Bahaya - Langsung ke IGD Jika:</h3>
           <ul className="space-y-2">
-            {result.red_flags.map((flag, idx) => (
+            {redFlags.map((flag, idx) => (
               <li key={idx} className="flex gap-2 items-start text-red-900 text-sm">
-                <span className="flex-shrink-0 mt-1">⚠️</span>
+                <span className="shrink-0 mt-1">⚠️</span>
                 <span>{flag}</span>
               </li>
             ))}
@@ -146,13 +150,13 @@ export function SymptomResult({ result, onBack }: SymptomResultProps) {
       )}
 
       {/* Follow Up Questions */}
-      {result.follow_up_questions && result.follow_up_questions.length > 0 && (
+      {followUpQuestions.length > 0 && (
         <Card className="bg-gray-50 p-4">
           <h3 className="font-semibold mb-3">💭 Pertanyaan Lanjutan untuk Dokter:</h3>
           <ul className="space-y-2">
-            {result.follow_up_questions.map((question, idx) => (
+            {followUpQuestions.map((question, idx) => (
               <li key={idx} className="flex gap-2 text-gray-700 text-sm">
-                <span className="flex-shrink-0 mt-1">❓</span>
+                <span className="shrink-0 mt-1">❓</span>
                 <span>{question}</span>
               </li>
             ))}
