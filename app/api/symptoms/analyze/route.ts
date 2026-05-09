@@ -1,32 +1,48 @@
-import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { sendJobToN8N } from "@/lib/n8n/send-job";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(
-  request: NextRequest
-) {
+interface SymptomAnalysisRequest {
+  symptoms: string[];
+  duration?: string;
+  severity?: "mild" | "moderate" | "severe";
+  age?: number;
+}
+
+export async function POST(request: NextRequest) {
   try {
+    const supabase = await createClient();
 
-    const supabase =
-      await createClient();
-
+    // Check user authentication
     const {
-      job_id,
-      result,
-    } = await request.json();
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    // update async_jobs
-    await supabase
-      .from("async_jobs")
-      .update({
-        status: "completed",
-        result,
-        completed_at:
-          new Date().toISOString(),
-      })
-      .eq("job_id", job_id);
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
-    return NextResponse.json({
-      success: true,
+    // Parse request body
+    const body: SymptomAnalysisRequest = await request.json();
+
+    if (!body.symptoms || body.symptoms.length === 0) {
+      return NextResponse.json(
+        { error: "Symptoms required" },
+        { status: 400 }
+      );
+    }
+
+    // Send job to N8N webhook
+    const { job_id } = await sendJobToN8N("/symptom-analysis", {
+      patient_id: user.id,
+      symptoms: body.symptoms,
+      duration: body.duration,
+      severity: body.severity,
+      age: body.age,
     });
 
     // Return immediately with job ID

@@ -1,24 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
+import { sendJobToN8N } from '@/lib/n8n/send-job'
 import { NextRequest, NextResponse } from 'next/server'
-import { randomUUID } from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
-    // =========================
-    // PARSE BODY
-    // =========================
-    const body = await request.json()
-
     const {
       lat,
       lng,
       radius = 10,
-      facility_type = 'clinic',
-    } = body
+      facility_type = "clinic"
+    } = await request.json()
 
-    // =========================
-    // VALIDATE INPUT
-    // =========================
+    // Validate input
     if (lat === undefined || lng === undefined) {
       return NextResponse.json(
         { error: 'Latitude and longitude required' },
@@ -36,120 +29,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // =========================
-    // SUPABASE CLIENT
-    // =========================
+    // Get authenticated user
     const supabase = await createClient()
-
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
-    // =========================
-    // WEBHOOK URL
-    // =========================
-    const webhookUrl = process.env.N8N_WEBHOOK_FACILITY_FINDER
-
-    if (!webhookUrl) {
-      console.error('❌ Missing N8N webhook env')
-      return NextResponse.json(
-        { error: 'N8N webhook env missing' },
-        { status: 500 }
-      )
-    }
-
-    // =========================
-    // CREATE JOB ID
-    // =========================
-    const job_id = randomUUID()
-
-    const payload = {
-      job_id,
-      user_id: user?.id || null,
+    // Send job to N8N webhook
+    const { job_id } = await sendJobToN8N("/facility-finder", {
+      user_id: user?.id,
       latitude,
       longitude,
-      radius,
+      radius_km: radius,
       facility_type,
-
-      callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/facility-finder`,
-    }
-
-    // =========================
-    // SAVE TO DB (async job)
-    // =========================
-    const { error: insertError } = await supabase
-      .from('async_jobs')
-      .insert({
-        job_id,
-        status: 'processing',
-        payload,
-        created_at: new Date().toISOString(),
-      })
-
-    if (insertError) {
-      console.error('❌ INSERT ERROR:', insertError)
-
-      return NextResponse.json(
-        { error: 'Failed to create async job' },
-        { status: 500 }
-      )
-    }
-
-    // =========================
-    // DEBUG LOGS (IMPORTANT)
-    // =========================
-    console.log('🚀 Sending to N8N:', webhookUrl)
-    console.log('📦 Payload:', payload)
-
-    // =========================
-    // SEND TO N8N WEBHOOK
-    // =========================
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15000)
-
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
     })
 
-    clearTimeout(timeout)
-
-    if (!response.ok) {
-      const text = await response.text()
-
-      console.error('❌ N8N ERROR:', text)
-
-      return NextResponse.json(
-        {
-          error: 'Failed sending to N8N',
-          details: text,
-        },
-        { status: 500 }
-      )
-    }
-
-    // =========================
-    // SUCCESS RESPONSE
-    // =========================
+    // Return immediately with job ID
     return NextResponse.json(
       {
-        success: true,
+        message: "Facility search queued",
         job_id,
-        status: 'processing',
+        status: "processing",
       },
       { status: 202 }
     )
+
   } catch (error) {
-    console.error('❌ SERVER ERROR:', error)
+    console.error('Server Error:', error)
 
     return NextResponse.json(
-      {
-        error: 'Failed to queue facility search',
-      },
+      { error: 'Failed to queue facility search' },
       { status: 500 }
     )
   }
