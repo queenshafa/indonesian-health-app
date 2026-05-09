@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     const { sendJobToN8N } = await import('@/lib/n8n/send-job')
 
     // Send job to N8N webhook
-    const { job_id } = await sendJobToN8N("/queue-processing", {
+    const { job_id } = await sendJobToN8N("queue-processing", {
       patient_id: user.id,
       doctor_id,
       clinic_id,

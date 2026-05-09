@@ -21,8 +21,20 @@ export default function DashboardNav({ user }: DashboardNavProps) {
   const supabase = createClient()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/auth/login')
+    try {
+      const { error } = await supabase.auth.signOut()
+
+      if (error) {
+        console.error('Logout error:', error)
+        return
+      }
+
+      // Hapus cache Next.js dan redirect ke halaman login
+      router.replace('/auth/login')
+      router.refresh()
+    } catch (error) {
+      console.error('Unexpected logout error:', error)
+    }
   }
 
   return (
@@ -31,27 +43,36 @@ export default function DashboardNav({ user }: DashboardNavProps) {
         <div className="flex justify-between items-center h-16">
           <Link href="/dashboard" className="flex items-center space-x-2">
             <span className="text-2xl font-bold text-blue-600">❤️</span>
-            <span className="font-bold text-gray-900 hidden sm:inline">Kesehatan Digital</span>
+            <span className="font-bold text-gray-900 hidden sm:inline">
+              Kesehatan Digital
+            </span>
           </Link>
 
           <div className="flex items-center space-x-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="text-sm">
+                <Button variant="ghost" className="text-sm max-w-[250px]">
                   <span className="truncate">{user.email}</span>
                 </Button>
               </DropdownMenuTrigger>
+
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
                   <Link href="/profile">Profil Saya</Link>
                 </DropdownMenuItem>
+
                 <DropdownMenuItem asChild>
                   <Link href="/family">Data Keluarga</Link>
                 </DropdownMenuItem>
+
                 <DropdownMenuItem asChild>
                   <Link href="/health-records">Riwayat Kesehatan</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout}>
+
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-red-600 cursor-pointer"
+                >
                   Keluar
                 </DropdownMenuItem>
               </DropdownMenuContent>

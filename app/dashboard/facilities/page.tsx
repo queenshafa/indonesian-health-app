@@ -60,6 +60,8 @@ export default function FacilitiesPage() {
   // FETCH DATA
   // =========================
 const fetchFacilities = async () => {
+  if (!userLocation) return
+
   setLoading(true)
 
   try {
@@ -67,25 +69,37 @@ const fetchFacilities = async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        lat: userLocation?.lat,
-        lng: userLocation?.lng,
+        lat: userLocation.lat,
+        lng: userLocation.lng,
         radius: 100
       })
     })
 
     const data = await res.json()
 
-    console.log("RAW:", data)
+    const rawFacilities = data?.facilities ?? data?.results ?? []
 
-    // =========================
-    // FIX UTAMA DI SINI
-    // =========================
-    const results = data?.[0]?.results ?? []
+    const normalizedFacilities = (Array.isArray(rawFacilities) ? rawFacilities : [])
+      .map((facility: any) => {
+        const rawType = facility.type ?? facility.facility_type ?? facility.clinic_type
+        const type = rawType === 'emergency' ? 'emergency_room' : rawType ?? 'clinic'
 
-    console.log("PARSED RESULTS:", results)
+        return {
+          id: facility.id ?? facility.facility_id ?? `${facility.name}-${facility.address}`,
+          name: facility.name ?? facility.facility_name ?? 'Nama fasilitas tidak tersedia',
+          type,
+          address: facility.address ?? facility.location ?? facility.address_line ?? 'Alamat tidak tersedia',
+          phone: facility.phone ?? facility.contact ?? 'Tidak tersedia',
+          distance_km: Number(facility.distance_km ?? facility.distance ?? facility.distanceKm ?? 0),
+          isOpen: facility.isOpen ?? facility.open ?? false,
+          operatingHours: facility.operatingHours ?? facility.hours ?? '',
+          bpjsPartner: Boolean(facility.bpjsPartner ?? facility.bpjs_partner ?? false),
+          rating: Number(facility.rating ?? facility.stars ?? 0),
+          specialties: facility.specialties ?? facility.services ?? [],
+        }
+      })
 
-    setFacilities(results)
-
+    setFacilities(normalizedFacilities)
   } catch (err) {
     console.error(err)
     setFacilities([])
@@ -93,6 +107,12 @@ const fetchFacilities = async () => {
     setLoading(false)
   }
 }
+
+useEffect(() => {
+  if (userLocation) {
+    fetchFacilities()
+  }
+}, [userLocation])
 
   // =========================
   // FILTER

@@ -45,16 +45,34 @@ export async function sendJobToN8N(kind: WebhookKind, payload: unknown) {
     headers["Authorization"] = `Bearer ${process.env.N8N_WEBHOOK_TOKEN}`;
   }
 
-  const res = await fetch(webhook_url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ job_id, ...(payload as object ?? {}) }),
-  });
+  let res: Response
+
+  try {
+    res = await fetch(webhook_url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ job_id, ...(payload as object ?? {}) }),
+    })
+  } catch (fetchError) {
+    console.error(`n8n webhook fetch failed for ${kind}:`, fetchError)
+
+    // The webhook was queued, but the remote service did not respond.
+    // Keep this job pending so it can be resolved when N8N eventually calls back.
+    return { job_id, responseBody: null }
+  }
 
   const responseBody = await res.json().catch(() => null);
 
   if (!res.ok) {
     const text = typeof responseBody === "string" ? responseBody : JSON.stringify(responseBody ?? "");
+
+    if ([524, 502, 503, 504].includes(res.status)) {
+      await supabase.from("async_jobs")
+        .update({ status: "pending", error: `n8n ${res.status}: ${text}` })
+        .eq("job_id", job_id);
+      return { job_id, responseBody: null }
+    }
+
     await supabase.from("async_jobs")
       .update({ status: "failed", error: `n8n ${res.status}: ${text}` })
       .eq("job_id", job_id);

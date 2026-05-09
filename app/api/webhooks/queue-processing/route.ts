@@ -9,9 +9,27 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+const rawPayload = Array.isArray(body) ? body[0] : body;
+
+const payload =
+  rawPayload &&
+  typeof rawPayload === 'object' &&
+  rawPayload !== null
+    ? 'body' in rawPayload &&
+      typeof rawPayload.body === 'object' &&
+      rawPayload.body !== null
+      ? rawPayload.body
+      : 'data' in rawPayload &&
+        typeof rawPayload.data === 'object' &&
+        rawPayload.data !== null
+      ? rawPayload.data
+      : rawPayload
+    : rawPayload;
+
     const {
       job_id,
       patient_id,
+      patient_email,
       doctor_id,
       clinic_id,
       appointment_date,
@@ -20,18 +38,30 @@ export async function POST(request: NextRequest) {
       estimated_wait_time,
       status = "completed",
       error_message,
-    } = body;
+    } = payload as Record<string, unknown>;
 
-    if (!job_id || !patient_id) {
+    if (!job_id) {
       return NextResponse.json(
-        { error: "job_id and patient_id required" },
+        { error: "job_id required" },
         { status: 400 }
       );
     }
 
     const supabase = await createClient();
 
-    if (error_message) {
+    const hasErrorMessage = (() => {
+      if (error_message == null) return false;
+      if (typeof error_message === "string") {
+        const trimmed = error_message.trim();
+        return trimmed !== "" && trimmed !== "{}" && trimmed.toLowerCase() !== "null";
+      }
+      if (typeof error_message === "object") {
+        return Object.keys(error_message).length > 0;
+      }
+      return true;
+    })();
+
+    if (hasErrorMessage) {
       // Update job status to failed
       await supabase
         .from("async_jobs")
@@ -45,19 +75,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // Create queue entry
+    const normalizedQueueNumber =
+      typeof queue_number === "number"
+        ? queue_number
+        : Number(queue_number);
+    const normalizedEstimatedWaitTime =
+      typeof estimated_wait_time === "number"
+        ? estimated_wait_time
+        : Number(estimated_wait_time);
+
+    const queueRow: Record<string, unknown> = {
+      doctor_id,
+      clinic_id,
+      appointment_date,
+      appointment_time,
+      queue_number: Number.isFinite(normalizedQueueNumber)
+        ? normalizedQueueNumber
+        : null,
+      patient_email: typeof patient_email === "string" ? patient_email : null,
+      status: "waiting",
+      estimated_wait_time_minutes: Number.isFinite(normalizedEstimatedWaitTime)
+        ? normalizedEstimatedWaitTime
+        : Number.isFinite(normalizedQueueNumber)
+        ? normalizedQueueNumber * 30
+        : null,
+    };
+
+    if (patient_id) {
+      queueRow.patient_id = patient_id;
+    }
+
     const { data: newQueue, error: insertError } = await supabase
       .from("queues")
-      .insert({
-        patient_id,
-        doctor_id,
-        clinic_id,
-        appointment_date,
-        appointment_time,
-        queue_number,
-        status: "waiting",
-        estimated_wait_time_minutes: estimated_wait_time || queue_number * 30,
-      })
+      .insert(queueRow)
       .select()
       .single();
 

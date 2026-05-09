@@ -4,6 +4,11 @@ import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet'
 import { useEffect, useState } from 'react'
 import L from 'leaflet'
 
+const MapContainerAny = MapContainer as any
+const TileLayerAny = TileLayer as any
+const MarkerAny = Marker as any
+const CircleAny = Circle as any
+
 interface Facility {
   id: string
   name: string
@@ -32,13 +37,26 @@ const DefaultIcon = L.icon({
   shadowSize: [41, 41],
 })
 
-const UserIcon = L.icon({
-  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzAwMDhDQyIvPjwvc3ZnPg==',
+L.Icon.Default.mergeOptions(DefaultIcon.options)
+
+const UserIcon = new L.Icon({
+  iconUrl: 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%20fill%3D%22%230008DC%22%20/%3E%3C/svg%3E',
   iconSize: [24, 24],
   iconAnchor: [12, 12],
 })
 
-L.Marker.prototype.setIcon(DefaultIcon)
+const facilityIconUrl = (color: string) =>
+  `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="${color}" fill-opacity="0.8"/><path d="M12 7v5l4 2" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+  )}`
+
+const createFacilityIcon = (color: string) =>
+  new L.Icon({
+    iconUrl: facilityIconUrl(color),
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16],
+  })
 
 export function FacilityMap({
   facilities,
@@ -59,28 +77,28 @@ export function FacilityMap({
 
   return (
     <div className="rounded-lg overflow-hidden border border-gray-300 h-96">
-      <MapContainer
+      <MapContainerAny
         center={center}
         zoom={13}
         scrollWheelZoom={true}
         className="h-full w-full"
       >
-        <TileLayer
+        <TileLayerAny
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
 
         {/* User Location Circle */}
-        <Circle
+        <CircleAny
           center={center}
           radius={500}
           pathOptions={{ color: 'blue', weight: 2, opacity: 0.5 }}
         />
 
         {/* User Marker */}
-        <Marker position={center} icon={UserIcon}>
+        <MarkerAny position={center} icon={UserIcon}>
           <Popup>Lokasi Anda</Popup>
-        </Marker>
+        </MarkerAny>
 
         {/* Facility Markers */}
         {facilities.map((facility) => {
@@ -109,18 +127,12 @@ export function FacilityMap({
             }
           }
 
-          const FacilityIcon = L.icon({
-            iconUrl: `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDI0IDI0Ij48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMiIgZmlsbD0iJHtnaWZlQ29sb3IodHlwZSl9IiBmaWxsLW9wYWNpdHk9IjAuOCIvPjwvc3ZnPg==`.replace(
-              '${getColor(facility.facility_type)}',
-              getColor(facility.facility_type)
-            ),
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
-            popupAnchor: [0, -16],
-          })
+          const FacilityIcon = createFacilityIcon(
+            getColor(facility.facility_type)
+          )
 
           return (
-            <Marker
+            <MarkerAny
               key={facility.id}
               position={position}
               icon={FacilityIcon}
@@ -142,10 +154,10 @@ export function FacilityMap({
                   )}
                 </div>
               </Popup>
-            </Marker>
+            </MarkerAny>
           )
         })}
-      </MapContainer>
+      </MapContainerAny>
     </div>
   )
 }
