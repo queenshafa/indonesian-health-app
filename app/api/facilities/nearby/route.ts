@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
       lat,
       lng,
       radius = 10,
-      facility_type = "clinic"
+      facility_type = ["hospital", "pharmacy", "clinic"]
     } = await request.json()
 
     // Validate input
@@ -36,13 +36,25 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     // Send job to N8N webhook
-    const { job_id } = await sendJobToN8N("facility-finder", {
+    const { job_id, responseBody } = await sendJobToN8N("facility-finder", {
       user_id: user?.id,
       latitude,
       longitude,
       radius_km: radius,
       facility_type,
     })
+
+    if (responseBody && typeof responseBody === 'object' && Array.isArray((responseBody as any).facilities)) {
+      return NextResponse.json(
+        {
+          message: "Facility search completed",
+          job_id,
+          status: "completed",
+          facilities: (responseBody as any).facilities,
+        },
+        { status: 200 }
+      )
+    }
 
     // Return immediately with job ID
     return NextResponse.json(
