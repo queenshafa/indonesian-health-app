@@ -1,0 +1,429 @@
+================================================================================
+WEBHOOK ARCHITECTURE OVERVIEW
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           CLIENT APPLICATION                            │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │ 1. User triggers action (e.g., "Analyze Symptoms")              │  │
+│  │ 2. Component calls POST /api/symptoms/analyze                   │  │
+│  │ 3. Gets back: { job_id: "xxx", status: "processing" }          │  │
+│  │ 4. useAsyncJob hook starts polling /api/jobs/xxx               │  │
+│  │ 5. Shows loading spinner until job completes                   │  │
+│  │ 6. Displays results when job.status === "completed"            │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                     ↓
+                ┌────────────────────────────────────┐
+                │  POST /api/symptoms/analyze        │
+                │                                    │
+                │  1. Validate input                 │
+                │  2. Create async_jobs record       │
+                │  3. Send to N8N via webhook        │
+                │  4. Return { job_id } (HTTP 202)   │
+                │  5. Exit immediately (<100ms)      │
+                └────────────────────────────────────┘
+                                     ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        ASYNC JOB PROCESSING                             │
+│  ┌────────────────────────────────────────────────────────────────┐   │
+│  │ async_jobs Table (Database)                                    │   │
+│  │ ┌──────────────────────────────────────────────────────────┐  │   │
+│  │ │ job_id:    550e8400-e29b-41d4-a716-446655440000        │  │   │
+│  │ │ status:    pending → processing → completed             │  │   │
+│  │ │ payload:   { patient_id, symptoms, ... }                │  │   │
+│  │ │ result:    { urgency_level, conditions, ... }           │  │   │
+│  │ │ error:     null                                          │  │   │
+│  │ │ created:   2025-05-08T10:30:00Z                          │  │   │
+│  │ │ completed: 2025-05-08T10:30:25Z                          │  │   │
+│  │ └──────────────────────────────────────────────────────────┘  │   │
+│  └────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+                                     ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         N8N WORKFLOW ENGINE                             │
+│  ┌────────────────────────────────────────────────────────────────┐   │
+│  │ 1. Receive Webhook POST                                        │   │
+│  │    {                                                            │   │
+│  │      "job_id": "xxx",                                          │   │
+│  │      "webhook_url": "https://app.com/api/webhooks/..."        │   │
+│  │      "patient_id": "user-123",                                 │   │
+│  │      "symptoms": ["fever", "cough"]                            │   │
+│  │    }                                                            │   │
+│  │                                                                 │   │
+│  │ 2. Process (could take seconds to minutes):                   │   │
+│  │    - Call Gemini AI API                                        │   │
+│  │    - Parse & format response                                   │   │
+│  │    - Calculate distances (if facility search)                  │   │
+│  │    - Generate queue numbers (if booking)                       │   │
+│  │                                                                 │   │
+│  │ 3. POST Results Back                                           │   │
+│  │    POST {webhook_url}                                          │   │
+│  │    {                                                            │   │
+│  │      "job_id": "xxx",                                          │   │
+│  │      "patient_id": "user-123",                                 │   │
+│  │      "analysis_result": { "urgency_level": "low", ... },       │   │
+│  │      "status": "completed"                                     │   │
+│  │    }                                                            │   │
+│  └────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+                                     ↓
+                ┌────────────────────────────────────┐
+                │  POST /api/webhooks/symptom-...    │
+                │                                    │
+                │  1. Validate job_id exists         │
+                │  2. Save to health_records         │
+                │  3. Update async_jobs (completed)  │
+                │  4. Return { success: true }       │
+                └────────────────────────────────────┘
+                                     ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    CLIENT POLLING FOR RESULTS                           │
+│  ┌────────────────────────────────────────────────────────────────┐   │
+│  │ useAsyncJob Hook                                               │   │
+│  │ ┌──────────────────────────────────────────────────────────┐  │   │
+│  │ │ Every 2 seconds:                                         │  │   │
+│  │ │ GET /api/jobs/{job_id}                                   │  │   │
+│  │ │                                                          │  │   │
+│  │ │ Response:                                                │  │   │
+│  │ │ {                                                        │  │   │
+│  │ │   "job_id": "xxx",                                       │  │   │
+│  │ │   "status": "completed",                                 │  │   │
+│  │ │   "result": {                                            │  │   │
+│  │ │     "urgency_level": "low",                              │  │   │
+│  │ │     "possible_conditions": [...]                         │  │   │
+│  │ │   },                                                     │  │   │
+│  │ │   "completed_at": "2025-05-08T10:30:25Z"                 │  │   │
+│  │ │ }                                                        │  │   │
+│  │ │                                                          │  │   │
+│  │ │ Hook state updates:                                      │  │   │
+│  │ │ isLoading = false                                        │  │   │
+│  │ │ isCompleted = true                                       │  │   │
+│  │ │ job.result = { ... }                                     │  │   │
+│  │ └──────────────────────────────────────────────────────────┘  │   │
+│  └────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+                                     ↓
+                ┌────────────────────────────────────┐
+                │  DISPLAY RESULTS TO USER           │
+                │                                    │
+                │  Component receives job.result     │
+                │  and renders the analysis          │
+                └────────────────────────────────────┘
+
+
+================================================================================
+ROUTE FLOW COMPARISON
+================================================================================
+
+OLD SYNCHRONOUS FLOW (BLOCKING):
+┌────────────┐    ┌─────────────┐    ┌──────────┐    ┌──────────────┐
+│   Client   │───→│  API Route  │───→│   AI/DB  │───→│   Response   │
+│  waiting   │    │ (blocking)  │    │ 2-30sec  │    │ (slow)       │
+└────────────┘    └─────────────┘    └──────────┘    └──────────────┘
+     Wait 2-30 seconds... 😞
+
+
+NEW ASYNCHRONOUS FLOW (NON-BLOCKING):
+┌────────────┐    ┌─────────────┐    ┌──────────┐
+│   Client   │───→│  API Route  │───→│  N8N     │
+│ (instant)  │    │ (validates) │    │(process) │
+└────────────┘    └─────────────┘    └──────────┘
+     ↓                                    ↓
+  polling                          webhook callback
+  (in background)                  (asynchronous)
+     ↓                                    ↓
+  /api/jobs/{id}  ←──────────────────────┤
+     ↓                                    
+  Gets results when ready ✅
+
+
+================================================================================
+FILE STRUCTURE
+================================================================================
+
+NEW ENDPOINTS:
+  app/
+  └── api/
+      ├── webhooks/
+      │   ├── symptom-analysis/
+      │   │   └── route.ts          ← N8N posts results here
+      │   ├── facility-finder/
+      │   │   └── route.ts          ← N8N posts results here
+      │   └── queue-processing/
+      │       └── route.ts          ← N8N posts results here
+      ├── jobs/
+      │   └── [job_id]/
+      │       └── route.ts          ← Client polls here
+      ├── symptoms/
+      │   └── analyze/
+      │       └── route.ts          ← Modified: now queues job
+      ├── facilities/
+      │   └── nearby/
+      │       └── route.ts          ← Modified: now queues job
+      └── queues/
+          └── route.ts              ← Modified: now queues job (POST only)
+
+UTILITIES:
+  lib/
+  ├── n8n/
+  │   └── send-job.ts               ← Queue job, check status
+  └── hooks/
+      └── useAsyncJob.ts            ← React hook for polling
+
+DATABASE:
+  scripts/
+  └── create-async-jobs-table.sql   ← Migration script
+
+DOCUMENTATION:
+  WEBHOOK_SETUP.md                  ← Configuration guide
+  WEBHOOK_MIGRATION_GUIDE.md        ← Implementation guide
+  WEBHOOK_QUICK_REFERENCE.md        ← Quick reference
+  WEBHOOK_CODE_EXAMPLES.md          ← Before/after examples
+  WEBHOOK_CHANGES_SUMMARY.md        ← What changed
+  WEBHOOK_DEPLOYMENT_CHECKLIST.md   ← Deployment steps
+  WEBHOOK_IMPLEMENTATION_SUMMARY.txt ← Overview
+  WEBHOOK_ARCHITECTURE.txt          ← This file
+
+
+================================================================================
+DATA FLOW EXAMPLE: SYMPTOM ANALYSIS
+================================================================================
+
+STEP 1: User Action
+┌─────────────────────────────────────────┐
+│ User clicks "Analyze Symptoms"          │
+│ Symptoms: ["fever", "cough"]            │
+│ Duration: "3 days"                      │
+│ Severity: "mild"                        │
+└─────────────────────────────────────────┘
+              ↓
+STEP 2: POST Request
+┌─────────────────────────────────────────┐
+│ POST /api/symptoms/analyze              │
+│ {                                       │
+│   "symptoms": ["fever", "cough"],       │
+│   "duration": "3 days",                 │
+│   "severity": "mild",                   │
+│   "age": 25                             │
+│ }                                       │
+└─────────────────────────────────────────┘
+              ↓
+STEP 3: Route Handler (Our Code)
+┌─────────────────────────────────────────┐
+│ 1. Get authenticated user               │
+│    user.id = "user-123"                 │
+│                                         │
+│ 2. Create job record:                   │
+│    async_jobs {                         │
+│      job_id: "550e...",                 │
+│      status: "pending",                 │
+│      payload: { ... },                  │
+│      created_at: now()                  │
+│    }                                    │
+│                                         │
+│ 3. Send to N8N:                         │
+│    POST N8N_WEBHOOK_URL with            │
+│    job_id + webhook_url + payload       │
+│                                         │
+│ 4. Return immediately:                  │
+│    { job_id: "550e...",                 │
+│      status: "processing" }             │
+│    HTTP 202 (Accepted)                  │
+└─────────────────────────────────────────┘
+              ↓
+STEP 4: N8N Workflow (Asynchronous)
+┌─────────────────────────────────────────┐
+│ [N8N Runs independently]                │
+│                                         │
+│ 1. Receive job details                  │
+│ 2. Call Gemini AI:                      │
+│    "Analyze symptoms: fever, cough"     │
+│    Duration: 3 days, Severity: mild     │
+│                                         │
+│ 3. Parse AI response:                   │
+│    {                                    │
+│      "urgency_level": "low",            │
+│      "possible_conditions": [...],      │
+│      "immediate_actions": [...]         │
+│    }                                    │
+│                                         │
+│ 4. POST to webhook:                     │
+│    POST /api/webhooks/symptom-analysis  │
+│    {                                    │
+│      "job_id": "550e...",               │
+│      "patient_id": "user-123",          │
+│      "analysis_result": { ... },        │
+│      "status": "completed"              │
+│    }                                    │
+└─────────────────────────────────────────┘
+              ↓
+STEP 5: Webhook Receiver (Our Code)
+┌─────────────────────────────────────────┐
+│ 1. Validate job_id exists               │
+│ 2. Save to health_records:              │
+│    {                                    │
+│      patient_id: "user-123",            │
+│      record_type: "symptom_log",        │
+│      ai_suggestion: { ... }             │
+│    }                                    │
+│                                         │
+│ 3. Update async_jobs:                   │
+│    status = "completed"                 │
+│    result = { ... }                     │
+│    completed_at = now()                 │
+│                                         │
+│ 4. Return success                       │
+└─────────────────────────────────────────┘
+              ↓
+STEP 6: Client Polling (React Hook)
+┌─────────────────────────────────────────┐
+│ useAsyncJob("550e...", {                │
+│   pollInterval: 2000,                   │
+│   autoStart: true                       │
+│ })                                      │
+│                                         │
+│ Every 2 seconds:                        │
+│ GET /api/jobs/550e...                   │
+│                                         │
+│ Responses:                              │
+│ Poll 1: status: "processing"            │
+│ Poll 2: status: "processing"            │
+│ Poll 3: status: "completed"             │
+│         result: { ... }                 │
+│         → Stop polling                  │
+│         → Update UI                     │
+└─────────────────────────────────────────┘
+              ↓
+STEP 7: Display Results
+┌─────────────────────────────────────────┐
+│ Component receives job.result:          │
+│ {                                       │
+│   "urgency_level": "low",               │
+│   "possible_conditions": [              │
+│     {                                   │
+│       "name": "Common Cold",            │
+│       "likelihood": "high",             │
+│       "description": "..."              │
+│     }                                   │
+│   ],                                    │
+│   "immediate_actions": [                │
+│     "Rest and stay hydrated",           │
+│     "Monitor symptoms"                  │
+│   ]                                     │
+│ }                                       │
+│                                         │
+│ → Render analysis results to user       │
+└─────────────────────────────────────────┘
+
+
+================================================================================
+KEY DIFFERENCES AT A GLANCE
+================================================================================
+
+Aspect              Before                  After
+────────────────────────────────────────────────────────────────────────
+Response Time       2-30 seconds            <100 milliseconds
+HTTP Status         200 OK (after wait)     202 Accepted (immediately)
+Processing          Synchronous/Blocking    Asynchronous/Non-blocking
+User Experience     Loading spinner 30s     Quick response + polling UI
+Server Load         Spikes during requests  Distributed via N8N
+Database Updates    Immediate               After N8N processing
+Error Handling      Single try/catch        Job status tracking
+Scaling             Difficult (threads)     Easy (queue-based)
+Debugging           Response logs only      Full job history
+
+
+================================================================================
+HTTP FLOW COMPARISON
+================================================================================
+
+OLD (SYNCHRONOUS):
+Request:   POST /api/symptoms/analyze
+           Content-Type: application/json
+           
+           { "symptoms": [...] }
+           
+Processing: [████████████████████████] (2-30 seconds)
+
+Response:  200 OK
+           { "urgency_level": "low", ... }
+           
+Total Time: 2-30 seconds ❌
+
+
+NEW (ASYNCHRONOUS):
+Request:   POST /api/symptoms/analyze
+           Content-Type: application/json
+           
+           { "symptoms": [...] }
+           
+Processing: < 100 milliseconds
+
+Response:  202 Accepted
+           { "job_id": "xxx", "status": "processing" }
+           
+Later:     GET /api/jobs/xxx → 200 OK → { ... result ... }
+           
+Total Time: <100ms + background processing ✅
+
+
+================================================================================
+MONITORING & OBSERVABILITY
+================================================================================
+
+Track Job Status:
+  SELECT * FROM async_jobs 
+  WHERE status IN ('pending', 'processing', 'completed', 'failed')
+  ORDER BY created_at DESC;
+
+Average Completion Time:
+  SELECT 
+    AVG(EXTRACT(EPOCH FROM (completed_at - created_at))) as avg_seconds
+  FROM async_jobs
+  WHERE status = 'completed';
+
+Error Rate:
+  SELECT 
+    COUNT(*) as failed_count,
+    COUNT(*) * 100.0 / (SELECT COUNT(*) FROM async_jobs) as failure_rate
+  FROM async_jobs
+  WHERE status = 'failed';
+
+Performance by Workflow Type:
+  SELECT 
+    webhook_url,
+    COUNT(*) as total_jobs,
+    AVG(EXTRACT(EPOCH FROM (completed_at - created_at))) as avg_time_seconds
+  FROM async_jobs
+  WHERE status = 'completed'
+  GROUP BY webhook_url;
+
+
+================================================================================
+SECURITY MODEL
+================================================================================
+
+Authentication:
+  ✓ Routes check user authentication before queueing
+  ✓ Webhooks validate job_id before processing
+  ✓ Database RLS policies restrict job visibility
+
+Data Flow:
+  User → API (validate) → async_jobs DB → N8N → Webhook → DB
+  
+  Each step validates before processing:
+  1. Route validates authenticated user
+  2. Job stored with user_id/patient_id
+  3. Webhook validates job_id matches request
+  4. Results returned only to authenticated user
+
+Secrets:
+  ✓ N8N_WEBHOOK_URL stored in env vars
+  ✓ Job results stored in database (not in logs)
+  ✓ Error messages sanitized before returning to client
+
+
+================================================================================
+END OF ARCHITECTURE OVERVIEW
+================================================================================

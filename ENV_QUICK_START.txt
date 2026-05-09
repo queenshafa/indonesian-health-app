@@ -1,0 +1,133 @@
+═══════════════════════════════════════════════════════════════
+  ENVIRONMENT VARIABLES - QUICK START GUIDE
+═══════════════════════════════════════════════════════════════
+
+STATUS SEKARANG:
+✅ NEXT_PUBLIC_SUPABASE_URL - SUDAH SET
+✅ NEXT_PUBLIC_SUPABASE_ANON_KEY - SUDAH SET
+❌ N8N_WEBHOOK_URL - BELUM SET (KRITIS!)
+
+═══════════════════════════════════════════════════════════════
+  YANG HARUS ANDA LAKUKAN SEKARANG:
+═══════════════════════════════════════════════════════════════
+
+1. BUKA N8N
+   - Login ke N8N account Anda
+   - Buka atau buat workflow untuk handle jobs
+   - Copy webhook URL
+
+2. SET VARIABLE DI VERCEL
+   - Pergi ke Vercel project
+   - Settings → Environment Variables
+   - Tambah variabel baru:
+   
+   Name: N8N_WEBHOOK_URL
+   Value: [paste webhook URL dari N8N]
+   Environments: Production, Preview, Development
+   
+   Klik Save
+
+3. REDEPLOY
+   - Vercel akan auto-redeploy
+   - Atau trigger redeploy manual
+
+═══════════════════════════════════════════════════════════════
+  FILE YANG BUTUH ENV VARIABLES:
+═══════════════════════════════════════════════════════════════
+
+lib/n8n/send-job.ts
+├─ N8N_WEBHOOK_URL (server, line 47) - HARUS ADA
+├─ NEXT_PUBLIC_API_URL (optional, line 41)
+└─ VERCEL_URL (auto, line 43)
+
+lib/supabase/server.ts
+├─ NEXT_PUBLIC_SUPABASE_URL ✅
+└─ NEXT_PUBLIC_SUPABASE_ANON_KEY ✅
+
+lib/supabase/client.ts
+├─ NEXT_PUBLIC_SUPABASE_URL ✅
+└─ NEXT_PUBLIC_SUPABASE_ANON_KEY ✅
+
+lib/supabase/proxy.ts
+├─ NEXT_PUBLIC_SUPABASE_URL ✅
+└─ NEXT_PUBLIC_SUPABASE_ANON_KEY ✅
+
+app/auth/sign-up/page.tsx
+└─ NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL (optional)
+
+═══════════════════════════════════════════════════════════════
+  TABEL LENGKAP:
+═══════════════════════════════════════════════════════════════
+
+VARIABLE                              STATUS    TIPE        KETERANGAN
+────────────────────────────────────────────────────────────────
+NEXT_PUBLIC_SUPABASE_URL             ✅ SET    Public      Supabase endpoint
+NEXT_PUBLIC_SUPABASE_ANON_KEY        ✅ SET    Public      Supabase API key
+N8N_WEBHOOK_URL                      ❌ MISSING Server      HARUS DITAMBAH!
+NEXT_PUBLIC_API_URL                  ⚠️ OPT    Public      Webhook callback
+NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ⚠️ OPT   Public      Auth redirect
+NODE_ENV                             ✅ AUTO   System      Vercel auto-set
+VERCEL_URL                           ✅ AUTO   System      Vercel auto-set
+
+═══════════════════════════════════════════════════════════════
+  CONTOH FORMAT N8N_WEBHOOK_URL:
+═══════════════════════════════════════════════════════════════
+
+Jika pakai N8N Cloud:
+  https://n8n-xxxxx.app.n8n.cloud/webhook/abc123def456
+
+Jika self-hosted:
+  https://n8n.yourcompany.com/webhook/api/v1/webhooks/abc123
+
+Jika localhost (dev):
+  http://localhost:5678/webhook/abc123
+
+═══════════════════════════════════════════════════════════════
+  LOCAL DEVELOPMENT (.env.local):
+═══════════════════════════════════════════════════════════════
+
+Buat file .env.local di root project:
+
+---
+NEXT_PUBLIC_SUPABASE_URL=https://cetfgtufoxxldipgjgae.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key_here
+N8N_WEBHOOK_URL=https://your-n8n.com/webhook/xxx
+NEXT_PUBLIC_API_URL=http://localhost:3000
+---
+
+(JANGAN COMMIT FILE INI!)
+
+═══════════════════════════════════════════════════════════════
+  TESTING SEBELUM DEPLOY:
+═══════════════════════════════════════════════════════════════
+
+1. Check Supabase (should work):
+   ✅ Login page berfungsi
+   ✅ Dashboard buka setelah login
+
+2. Check N8N (akan fail sampai N8N_WEBHOOK_URL diset):
+   ❌ "N8N_WEBHOOK_URL is not set" error
+   Setelah diset:
+   ✅ Submit form, dapat job_id
+   ✅ Status endpoint return job status
+
+═══════════════════════════════════════════════════════════════
+  DOKUMENTASI LENGKAP:
+═══════════════════════════════════════════════════════════════
+
+- ENV_VARIABLES_REQUIRED.md (DETAILED guide)
+- WEBHOOK_SETUP.md (N8N configuration)
+- WEBHOOK_QUICK_REFERENCE.md (Testing commands)
+- WEBHOOK_DOCS_INDEX.md (Navigation ke semua docs)
+
+═══════════════════════════════════════════════════════════════
+  QUESTIONS?
+═══════════════════════════════════════════════════════════════
+
+Check ENV_VARIABLES_REQUIRED.md section "Troubleshooting"
+atau lihat WEBHOOK_DOCS_INDEX.md untuk complete navigation.
+
+═══════════════════════════════════════════════════════════════
+Last Updated: May 8, 2026
+Status: ✅ Frontend tidak diubah, hanya environment setup
+═══════════════════════════════════════════════════════════════
