@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     // Send job to N8N webhook
-    const { job_id } = await sendJobToN8N("/facility-finder", {
+    const { job_id } = await sendJobToN8N("facility-finder", {
       user_id: user?.id,
       latitude,
       longitude,
